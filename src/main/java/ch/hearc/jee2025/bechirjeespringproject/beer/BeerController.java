@@ -1,6 +1,10 @@
 package ch.hearc.jee2025.bechirjeespringproject.beer;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/beers")
@@ -19,7 +23,10 @@ public class BeerController {
     @PutMapping("/{id}")
     public Beer update(@PathVariable Long id, @RequestBody Beer beer) {
         if (beerService.findById(id).isEmpty()) {
-            throw new RuntimeException("Beer not found with id: " + id);
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Beer not found with id: " + id
+            );
         }
         beer.setId(id);
         return beerService.save(beer);
@@ -34,13 +41,26 @@ public class BeerController {
     @GetMapping("/{id}")
     public Beer getById(@PathVariable Long id) {
         return beerService.findById(id)
-                .orElseThrow(() -> new RuntimeException("Beer not found with id: " + id));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Beer not found with id: " + id
+                ));
     }
 
     // DELETE
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Long id) {
+    public Map<String, String> delete(@PathVariable Long id) {
+        if (beerService.findById(id).isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Beer not found with id: " + id
+            );
+        }
         beerService.deleteById(id);
+        return Map.of(
+                "message", "Beer deleted successfully",
+                "id", id.toString()
+        );
     }
 
     private final BeerService beerService;
