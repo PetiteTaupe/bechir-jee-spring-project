@@ -1,9 +1,8 @@
 package ch.hearc.jee2025.bechirjeespringproject.beer;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
+import ch.hearc.jee2025.bechirjeespringproject.brewery.Brewery;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import jakarta.persistence.*;
 
 @Entity
 public class Beer {
@@ -46,6 +45,10 @@ public class Beer {
         this.stock = stock;
     }
 
+    public Brewery getBrewery() { return brewery; }
+
+    public void setBrewery(Brewery brewery) { this.brewery = brewery; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -55,4 +58,9 @@ public class Beer {
     private double price;
 
     private int stock;
+
+    @ManyToOne
+    @JoinColumn(name = "brewery_id", nullable = false)
+    @JsonIgnoreProperties("beers")
+    private Brewery brewery;
 }

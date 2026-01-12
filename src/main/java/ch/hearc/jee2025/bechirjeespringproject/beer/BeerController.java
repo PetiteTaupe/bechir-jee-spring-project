@@ -1,5 +1,7 @@
 package ch.hearc.jee2025.bechirjeespringproject.beer;
 
+import ch.hearc.jee2025.bechirjeespringproject.brewery.Brewery;
+import ch.hearc.jee2025.bechirjeespringproject.brewery.BreweryService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -10,13 +12,15 @@ import java.util.Map;
 @RequestMapping("/beers")
 public class BeerController {
 
-    public BeerController(BeerService beerService) {
+    public BeerController(BeerService beerService, BreweryService breweryService) {
         this.beerService = beerService;
+        this.breweryService = breweryService;
     }
 
     // CREATE/UPDATE
     @PostMapping
     public Beer create(@RequestBody Beer beer) {
+        attachManagedBrewery(beer);
         return beerService.save(beer);
     }
 
@@ -29,7 +33,25 @@ public class BeerController {
             );
         }
         beer.setId(id);
+        attachManagedBrewery(beer);
         return beerService.save(beer);
+    }
+
+    private void attachManagedBrewery(Beer beer) {
+        Brewery brewery = beer.getBrewery();
+        if (brewery == null || brewery.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "brewery.id is required"
+            );
+        }
+
+        Brewery managedBrewery = breweryService.findById(brewery.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Brewery not found with id: " + brewery.getId()
+                ));
+        beer.setBrewery(managedBrewery);
     }
 
     // READ
@@ -64,4 +86,5 @@ public class BeerController {
     }
 
     private final BeerService beerService;
+    private final BreweryService breweryService;
 }
