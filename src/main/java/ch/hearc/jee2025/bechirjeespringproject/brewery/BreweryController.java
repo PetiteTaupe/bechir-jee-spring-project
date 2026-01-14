@@ -50,17 +50,15 @@ public class BreweryController {
     // DELETE
     @DeleteMapping("/{id}")
     public Map<String, String> delete(@PathVariable Long id) {
-        if (breweryService.findById(id).isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Brewery not found with id: " + id
+        try {
+            breweryService.deleteById(id);
+            return Map.of(
+                    "message", "Brewery deleted successfully",
+                    "id", id.toString()
             );
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
-        breweryService.deleteById(id);
-        return Map.of(
-                "message", "Brewery deleted successfully",
-                "id", id.toString()
-        );
     }
 
     private final BreweryService breweryService;

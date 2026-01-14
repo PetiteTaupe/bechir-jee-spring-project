@@ -28,10 +28,9 @@ public class BreweryServiceImpl implements BreweryService{
 
     @Override
     public void deleteById(Long id) {
-        if (!breweryRepository.existsById(id)) {
-            throw new RuntimeException("Beer not found with id: " + id);
-        }
-        breweryRepository.deleteById(id);
+        Brewery brewery = breweryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Brewery not found with id: " + id));
+        breweryRepository.delete(brewery);
     }
 
     private final BreweryRepository breweryRepository;
