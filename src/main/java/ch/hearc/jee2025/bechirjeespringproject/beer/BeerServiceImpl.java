@@ -28,11 +28,11 @@ public class BeerServiceImpl implements BeerService {
 
     @Override
     public void deleteById(Long id) {
-        if (!beerRepository.existsById(id)) {
-            throw new RuntimeException("Beer not found with id: " + id);
-        }
-        beerRepository.deleteById(id);
+        Beer beer = beerRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Beer not found with id: " + id));
+        beerRepository.delete(beer);
     }
+
 
     private final BeerRepository beerRepository;
 }

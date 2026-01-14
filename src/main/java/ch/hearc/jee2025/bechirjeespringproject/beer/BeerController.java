@@ -72,17 +72,17 @@ public class BeerController {
     // DELETE
     @DeleteMapping("/{id}")
     public Map<String, String> delete(@PathVariable Long id) {
-        if (beerService.findById(id).isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "Beer not found with id: " + id
+        try {
+            beerService.deleteById(id);
+            return Map.of(
+                    "message", "Beer deleted successfully",
+                    "id", id.toString()
             );
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Beer cannot be deleted because it is used in one or more carts");
+        } catch (RuntimeException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
-        beerService.deleteById(id);
-        return Map.of(
-                "message", "Beer deleted successfully",
-                "id", id.toString()
-        );
     }
 
     private final BeerService beerService;
