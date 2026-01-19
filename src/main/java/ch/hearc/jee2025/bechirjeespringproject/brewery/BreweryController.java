@@ -6,6 +6,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
+import static ch.hearc.jee2025.bechirjeespringproject.AdminUtils.checkAdminKey;
+
 @RestController
 @RequestMapping("/breweries")
 public class BreweryController {
@@ -16,12 +18,14 @@ public class BreweryController {
 
     // CREATE/UPDATE
     @PostMapping
-    public Brewery create(@RequestBody Brewery brewery) {
+    public Brewery create(@RequestBody Brewery brewery, @RequestHeader(value = "X-ADMIN-KEY", required = false) String key) {
+        checkAdminKey(key);
         return breweryService.save(brewery);
     }
 
     @PutMapping("/{id}")
-    public Brewery update(@PathVariable Long id, @RequestBody Brewery brewery) {
+    public Brewery update(@PathVariable Long id, @RequestBody Brewery brewery, @RequestHeader(value = "X-ADMIN-KEY", required = false) String key) {
+        checkAdminKey(key);
         if (breweryService.findById(id).isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
@@ -49,7 +53,8 @@ public class BreweryController {
 
     // DELETE
     @DeleteMapping("/{id}")
-    public Map<String, String> delete(@PathVariable Long id) {
+    public Map<String, String> delete(@PathVariable Long id, @RequestHeader(value = "X-ADMIN-KEY", required = false) String key) {
+        checkAdminKey(key);
         try {
             breweryService.deleteById(id);
             return Map.of(

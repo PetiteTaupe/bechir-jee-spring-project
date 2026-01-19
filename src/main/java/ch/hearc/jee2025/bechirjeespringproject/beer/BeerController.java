@@ -8,6 +8,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
+import static ch.hearc.jee2025.bechirjeespringproject.AdminUtils.checkAdminKey;
+
 @RestController
 @RequestMapping("/beers")
 public class BeerController {
@@ -19,13 +21,15 @@ public class BeerController {
 
     // CREATE/UPDATE
     @PostMapping
-    public Beer create(@RequestBody Beer beer) {
+    public Beer create(@RequestBody Beer beer, @RequestHeader(value = "X-ADMIN-KEY", required = false) String key) {
+        checkAdminKey(key);
         attachManagedBrewery(beer);
         return beerService.save(beer);
     }
 
     @PutMapping("/{id}")
-    public Beer update(@PathVariable Long id, @RequestBody Beer beer) {
+    public Beer update(@PathVariable Long id, @RequestBody Beer beer, @RequestHeader(value = "X-ADMIN-KEY", required = false) String key) {
+        checkAdminKey(key);
         if (beerService.findById(id).isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
@@ -35,23 +39,6 @@ public class BeerController {
         beer.setId(id);
         attachManagedBrewery(beer);
         return beerService.save(beer);
-    }
-
-    private void attachManagedBrewery(Beer beer) {
-        Brewery brewery = beer.getBrewery();
-        if (brewery == null || brewery.getId() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "brewery.id is required"
-            );
-        }
-
-        Brewery managedBrewery = breweryService.findById(brewery.getId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Brewery not found with id: " + brewery.getId()
-                ));
-        beer.setBrewery(managedBrewery);
     }
 
     // READ
@@ -71,7 +58,8 @@ public class BeerController {
 
     // DELETE
     @DeleteMapping("/{id}")
-    public Map<String, String> delete(@PathVariable Long id) {
+    public Map<String, String> delete(@PathVariable Long id, @RequestHeader(value = "X-ADMIN-KEY", required = false) String key) {
+        checkAdminKey(key);
         try {
             beerService.deleteById(id);
             return Map.of(
@@ -83,6 +71,24 @@ public class BeerController {
         } catch (RuntimeException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
+    }
+
+    // utils
+    private void attachManagedBrewery(Beer beer) {
+        Brewery brewery = beer.getBrewery();
+        if (brewery == null || brewery.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "brewery.id is required"
+            );
+        }
+
+        Brewery managedBrewery = breweryService.findById(brewery.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Brewery not found with id: " + brewery.getId()
+                ));
+        beer.setBrewery(managedBrewery);
     }
 
     private final BeerService beerService;
