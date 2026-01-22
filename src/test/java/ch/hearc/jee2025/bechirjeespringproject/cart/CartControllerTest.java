@@ -1,6 +1,7 @@
 package ch.hearc.jee2025.bechirjeespringproject.cart;
 
 import ch.hearc.jee2025.bechirjeespringproject.beer.Beer;
+import ch.hearc.jee2025.bechirjeespringproject.beer.BeerService;
 import ch.hearc.jee2025.bechirjeespringproject.cart_item.CartItem;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,12 +26,14 @@ class CartControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private CartService cartService;
+    private BeerService beerService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         cartService = mock(CartService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new CartController(cartService)).build();
+        beerService = mock(BeerService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new CartController(cartService, beerService)).build();
     }
 
     @Test
@@ -163,6 +166,10 @@ class CartControllerTest {
         when(cartService.findById(10L)).thenReturn(Optional.of(existing));
         when(cartService.save(any(Cart.class))).thenAnswer(inv -> inv.getArgument(0));
 
+        Beer managedBeer = new Beer("New", 2.0, 10);
+        managedBeer.setId(1L);
+        when(beerService.findById(1L)).thenReturn(Optional.of(managedBeer));
+
         String payload = "{\"items\":[{\"quantity\":2,\"beer\":{\"id\":1}}]}";
 
         mockMvc.perform(put("/carts/10")
@@ -173,6 +180,7 @@ class CartControllerTest {
         ArgumentCaptor<Cart> captor = ArgumentCaptor.forClass(Cart.class);
         verify(cartService).findById(10L);
         verify(cartService).save(captor.capture());
+        verify(beerService).findById(1L);
 
         Cart saved = captor.getValue();
         assertEquals(10L, saved.getId());
@@ -181,7 +189,7 @@ class CartControllerTest {
         assertEquals(1L, saved.getItems().getFirst().getBeer().getId());
         assertEquals(2, saved.getItems().getFirst().getQuantity());
 
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, beerService);
     }
 
     @Test
