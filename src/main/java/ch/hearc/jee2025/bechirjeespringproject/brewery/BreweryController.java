@@ -61,6 +61,8 @@ public class BreweryController {
                     "message", "Brewery deleted successfully",
                     "id", id.toString()
             );
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Brewery cannot be deleted because it is linked to one or more beers");
         } catch (RuntimeException e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, e.getMessage());
         }
