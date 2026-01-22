@@ -1,5 +1,7 @@
 package ch.hearc.jee2025.bechirjeespringproject.cart;
 
+import ch.hearc.jee2025.bechirjeespringproject.beer.Beer;
+import ch.hearc.jee2025.bechirjeespringproject.beer.BeerService;
 import ch.hearc.jee2025.bechirjeespringproject.cart_item.CartItem;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -11,13 +13,20 @@ import java.util.Map;
 @RequestMapping("/carts")
 public class CartController {
 
-    public CartController(CartService cartService) {
+    public CartController(CartService cartService, BeerService beerService) {
         this.cartService = cartService;
+        this.beerService = beerService;
     }
 
     // CREATE/UPDATE
     @PostMapping
     public Cart create(@RequestBody Cart cart) {
+        if (cart.getItems() != null) {
+            for (CartItem item : cart.getItems()) {
+                attachManagedBeerAndValidateStock(item);
+                item.setCart(cart);
+            }
+        }
         return cartService.save(cart);
     }
 
@@ -32,12 +41,7 @@ public class CartController {
         existingCart.getItems().clear();
         if (cartUpdates.getItems() != null) {
             for (CartItem item : cartUpdates.getItems()) {
-                if (item.getBeer() == null || item.getBeer().getId() == null) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_REQUEST,
-                            "CartItem must have a valid beer with id"
-                    );
-                }
+                attachManagedBeerAndValidateStock(item);
                 item.setCart(existingCart);
                 existingCart.getItems().add(item);
             }
@@ -90,6 +94,37 @@ public class CartController {
         }
     }
 
+    private void attachManagedBeerAndValidateStock(CartItem item) {
+        if (item.getBeer() == null || item.getBeer().getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "CartItem must have a valid beer with id"
+            );
+        }
+
+        if (item.getQuantity() <= 0) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "quantity must be greater than 0"
+            );
+        }
+
+        Beer managedBeer = beerService.findById(item.getBeer().getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Beer not found with id: " + item.getBeer().getId()
+                ));
+
+        if (item.getQuantity() > managedBeer.getStock()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Not enough stock for beer id: " + managedBeer.getId()
+            );
+        }
+
+        item.setBeer(managedBeer);
+    }
 
     private final CartService cartService;
+    private final BeerService beerService;
 }

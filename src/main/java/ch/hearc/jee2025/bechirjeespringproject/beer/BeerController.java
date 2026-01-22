@@ -23,6 +23,7 @@ public class BeerController {
     @PostMapping
     public Beer create(@RequestBody Beer beer, @RequestHeader(value = "X-ADMIN-KEY", required = false) String key) {
         checkAdminKey(key);
+        validateBeerFields(beer);
         attachManagedBrewery(beer);
         return beerService.save(beer);
     }
@@ -37,6 +38,7 @@ public class BeerController {
             );
         }
         beer.setId(id);
+        validateBeerFields(beer);
         attachManagedBrewery(beer);
         return beerService.save(beer);
     }
@@ -89,6 +91,18 @@ public class BeerController {
                         "Brewery not found with id: " + brewery.getId()
                 ));
         beer.setBrewery(managedBrewery);
+    }
+
+    private void validateBeerFields(Beer beer) {
+        if (beer.getName() == null || beer.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "name is required");
+        }
+        if (beer.getPrice() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "price must be greater than or equal to 0");
+        }
+        if (beer.getStock() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "stock must be greater than or equal to 0");
+        }
     }
 
     private final BeerService beerService;

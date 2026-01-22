@@ -79,6 +79,13 @@ public class CartItemController {
             );
         }
 
+        if (item.getQuantity() > managedBeer.getStock()) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Not enough stock for beer id: " + managedBeer.getId()
+            );
+        }
+
         item.setCart(managedCart);
         item.setBeer(managedBeer);
     }
