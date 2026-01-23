@@ -49,7 +49,7 @@ Cette séparation facilite la lisibilité et l’évolution du projet : les en
 
 ### 1.3 Initialisation des données
 
-Le composant `DataInitializer` (profil `h2`) insère un jeu de données minimal : fabricants, bières, paniers et lignes. Cela permet de tester rapidement l’API sans chargement manuel préalable.
+Le composant `DataInitializer` (profil `h2`) insère un jeu de données minimal : fabricants, bières, paniers, lignes et ventes (`SalesLog`). Cela permet de tester rapidement l’API sans chargement manuel préalable.
 
 ## 2. Fonctionnalités minimales
 
