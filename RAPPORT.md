@@ -59,6 +59,7 @@ Le composant `DataInitializer` (profil `h2`) insère un jeu de données minimal�
 
 Endpoints publics :
 - `GET /beers` → liste des bières (nom, prix, stock, fabricant).
+- `GET /beers?country=Switzerland` → filtre par pays du fabricant (champ `brewery.country`).
 - `GET /beers/{id}` → détail d’une bière.
 - `GET /breweries` → liste des fabricants (avec leurs bières).
 - `GET /breweries/{id}` → détail d’un fabricant.
@@ -108,7 +109,74 @@ En plus des objectifs minimaux, le projet implémente :
 
 - **Checkout transactionnel** : validation d’achat, décrément du stock, suppression du panier.
 - **Journalisation des ventes** : création d’un `SalesLog` avec ses lignes `SalesLogItem` lors du checkout.
+- **Top global des ventes** : `GET /sales_logs/top?limit=10` agrège les quantités vendues par bière.
 - **Jeu de données de démonstration** : insertion automatique via `DataInitializer` (profil `h2`).
+
+### 2.5 Commandes curl (exemples)
+
+Catalogue (public) :
+
+```bash
+curl http://localhost:8080/beers
+```
+
+Filtrer par pays (public) :
+
+```bash
+curl "http://localhost:8080/beers?country=Belgium"
+```
+
+Top global des ventes (public) :
+
+```bash
+curl "http://localhost:8080/sales_logs/top?limit=5"
+```
+
+Créer un fabricant (admin, avec clé) :
+
+```bash
+curl -X POST http://localhost:8080/breweries \
+	-H 'Content-Type: application/json' \
+	-H 'X-ADMIN-KEY: secret123' \
+	-d '{"name":"Test Brewery","country":"Switzerland"}'
+```
+
+Créer un fabricant (admin, sans clé) :
+
+```bash
+curl -X POST http://localhost:8080/breweries \
+	-H 'Content-Type: application/json' \
+	-d '{"name":"Test Brewery","country":"Switzerland"}'
+```
+
+Créer une bière (admin, avec clé) :
+
+```bash
+curl -X POST http://localhost:8080/beers \
+	-H 'Content-Type: application/json' \
+	-H 'X-ADMIN-KEY: secret123' \
+	-d '{"name":"Test IPA","price":4.2,"stock":10,"brewery":{"id":1}}'
+```
+
+Créer un panier (public) :
+
+```bash
+curl -X POST http://localhost:8080/carts \
+	-H 'Content-Type: application/json' \
+	-d '{"items":[{"quantity":2,"beer":{"id":1}},{"quantity":1,"beer":{"id":2}}]}'
+```
+
+Voir le total du panier (public) :
+
+```bash
+curl http://localhost:8080/carts/1/total
+```
+
+Checkout d’un panier (public) :
+
+```bash
+curl -X POST http://localhost:8080/carts/1/checkout
+```
 
 ## 3. Problèmes, résolutions, choix
 
@@ -160,7 +228,7 @@ En plus des objectifs minimaux, le projet implémente :
 ### 4.2 Limites et améliorations possibles
 
 - Remplacer `X-ADMIN-KEY` par une authentification complète (Spring Security).
-- Exposer des endpoints de consultation/export des `SalesLog`.
+- Étendre l’analyse des ventes (filtres par dates, agrégations avancées).
 
 ## Conclusion
 

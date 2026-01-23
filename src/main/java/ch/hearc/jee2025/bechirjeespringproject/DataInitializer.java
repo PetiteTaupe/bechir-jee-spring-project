@@ -8,20 +8,26 @@ import ch.hearc.jee2025.bechirjeespringproject.cart.Cart;
 import ch.hearc.jee2025.bechirjeespringproject.cart.CartRepository;
 import ch.hearc.jee2025.bechirjeespringproject.cart_item.CartItem;
 import ch.hearc.jee2025.bechirjeespringproject.cart_item.CartItemRepository;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLog;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLogItem;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLogRepository;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 @Component
 @Profile("h2")
 public class DataInitializer implements ApplicationRunner {
 
-    public DataInitializer(BreweryRepository breweryRepository, BeerRepository beerRepository, CartRepository cartRepository, CartItemRepository cartItemRepository) {
+    public DataInitializer(BreweryRepository breweryRepository, BeerRepository beerRepository, CartRepository cartRepository, CartItemRepository cartItemRepository, SalesLogRepository salesLogRepository) {
         this.breweryRepository = breweryRepository;
         this.beerRepository = beerRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
+        this.salesLogRepository = salesLogRepository;
     }
 
     @Override
@@ -155,6 +161,34 @@ public class DataInitializer implements ApplicationRunner {
             cart5.getItems().add(item5c);
 
             cartRepository.save(cart5);
+
+            SalesLog salesLog1 = new SalesLog();
+            salesLog1.setCartId(1001L);
+            salesLog1.setCreatedAt(LocalDateTime.now().minusDays(5));
+            salesLog1.setTotal(0);
+            salesLog1.getItems().add(new SalesLogItem(salesLog1, cardinalBlonde.getId(), cardinalBlonde.getName(), cardinalBlonde.getPrice(), 6));
+            salesLog1.getItems().add(new SalesLogItem(salesLog1, feldschloesschenOriginal.getId(), feldschloesschenOriginal.getName(), feldschloesschenOriginal.getPrice(), 4));
+            salesLog1.setTotal(salesLog1.getItems().stream().mapToDouble(SalesLogItem::getLineTotal).sum());
+            salesLogRepository.save(salesLog1);
+
+            SalesLog salesLog2 = new SalesLog();
+            salesLog2.setCartId(1002L);
+            salesLog2.setCreatedAt(LocalDateTime.now().minusDays(2));
+            salesLog2.setTotal(0);
+            salesLog2.getItems().add(new SalesLogItem(salesLog2, calandaLager.getId(), calandaLager.getName(), calandaLager.getPrice(), 12));
+            salesLog2.getItems().add(new SalesLogItem(salesLog2, bfmLaMeule.getId(), bfmLaMeule.getName(), bfmLaMeule.getPrice(), 3));
+            salesLog2.setTotal(salesLog2.getItems().stream().mapToDouble(SalesLogItem::getLineTotal).sum());
+            salesLogRepository.save(salesLog2);
+
+            SalesLog salesLog3 = new SalesLog();
+            salesLog3.setCartId(1003L);
+            salesLog3.setCreatedAt(LocalDateTime.now().minusDays(1));
+            salesLog3.setTotal(0);
+            salesLog3.getItems().add(new SalesLogItem(salesLog3, boxerBlonde.getId(), boxerBlonde.getName(), boxerBlonde.getPrice(), 15));
+            salesLog3.getItems().add(new SalesLogItem(salesLog3, guinnessDraught.getId(), guinnessDraught.getName(), guinnessDraught.getPrice(), 7));
+            salesLog3.getItems().add(new SalesLogItem(salesLog3, duvelClassic.getId(), duvelClassic.getName(), duvelClassic.getPrice(), 4));
+            salesLog3.setTotal(salesLog3.getItems().stream().mapToDouble(SalesLogItem::getLineTotal).sum());
+            salesLogRepository.save(salesLog3);
         }
     }
 
@@ -162,4 +196,5 @@ public class DataInitializer implements ApplicationRunner {
     private final BeerRepository beerRepository;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
+    private final SalesLogRepository salesLogRepository;
 }
