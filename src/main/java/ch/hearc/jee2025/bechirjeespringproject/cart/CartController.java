@@ -4,9 +4,11 @@ import ch.hearc.jee2025.bechirjeespringproject.beer.Beer;
 import ch.hearc.jee2025.bechirjeespringproject.beer.BeerService;
 import ch.hearc.jee2025.bechirjeespringproject.cart_item.CartItem;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -78,6 +80,53 @@ public class CartController {
                 "total", cart.getTotalPrice()
         );
     }
+
+        @PostMapping("/{id}/checkout")
+        @Transactional
+        public Map<String, Object> checkout(@PathVariable Long id) {
+        Cart cart = cartService.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Cart not found with id: " + id
+            ));
+
+        Map<Long, Integer> quantityByBeerId = new HashMap<>();
+        for (CartItem item : cart.getItems()) {
+            attachManagedBeerAndValidateStock(item);
+            Long beerId = item.getBeer().getId();
+            quantityByBeerId.merge(beerId, item.getQuantity(), Integer::sum);
+        }
+
+        for (Map.Entry<Long, Integer> entry : quantityByBeerId.entrySet()) {
+            Long beerId = entry.getKey();
+            int requestedQuantity = entry.getValue();
+
+            Beer managedBeer = beerService.findById(beerId)
+                .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Beer not found with id: " + beerId
+                ));
+
+            if (requestedQuantity > managedBeer.getStock()) {
+            throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Not enough stock for beer id: " + managedBeer.getId()
+            );
+            }
+
+            managedBeer.setStock(managedBeer.getStock() - requestedQuantity);
+            beerService.save(managedBeer);
+        }
+
+        double total = cart.getTotalPrice();
+        cartService.deleteById(id);
+
+        return Map.of(
+            "message", "Checkout successful",
+            "cartId", id,
+            "total", total
+        );
+        }
 
 
     // DELETE

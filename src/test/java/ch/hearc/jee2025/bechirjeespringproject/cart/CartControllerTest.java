@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 
@@ -215,5 +216,69 @@ class CartControllerTest {
 
         verify(cartService).deleteById(10L);
         verifyNoMoreInteractions(cartService);
+    }
+
+    @Test
+    // Vérifie que POST /carts/{id}/checkout retourne 404 si le panier n'existe pas.
+    void checkout_whenMissing_returns404() throws Exception {
+        when(cartService.findById(10L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/carts/10/checkout"))
+                .andExpect(status().isNotFound());
+
+        verify(cartService).findById(10L);
+        verifyNoMoreInteractions(cartService, beerService);
+    }
+
+    @Test
+    // Vérifie que POST /carts/{id}/checkout décrémente le stock, supprime le panier, et retourne 200 + total.
+    void checkout_whenOk_decrementsStock_deletesCart_andReturnsTotal() throws Exception {
+        Beer beer = new Beer("Test", 2.5, 10);
+        beer.setId(1L);
+
+        Cart cart = new Cart();
+        cart.setId(10L);
+        cart.getItems().add(new CartItem(cart, beer, 3));
+
+        when(cartService.findById(10L)).thenReturn(Optional.of(cart));
+        when(beerService.findById(1L)).thenReturn(Optional.of(beer));
+        when(beerService.save(any(Beer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        mockMvc.perform(post("/carts/10/checkout"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.message", is("Checkout successful")))
+                .andExpect(jsonPath("$.cartId", is(10)))
+                .andExpect(jsonPath("$.total", is(7.5)));
+
+        ArgumentCaptor<Beer> beerCaptor = ArgumentCaptor.forClass(Beer.class);
+        verify(cartService).findById(10L);
+        verify(beerService, atLeastOnce()).findById(1L);
+        verify(beerService).save(beerCaptor.capture());
+        verify(cartService).deleteById(10L);
+
+        assertEquals(7, beerCaptor.getValue().getStock());
+        verifyNoMoreInteractions(cartService, beerService);
+    }
+
+    @Test
+    // Vérifie que POST /carts/{id}/checkout retourne 409 si stock insuffisant.
+    void checkout_whenNotEnoughStock_returns409() throws Exception {
+        Beer beer = new Beer("Test", 2.5, 2);
+        beer.setId(1L);
+
+        Cart cart = new Cart();
+        cart.setId(10L);
+        cart.getItems().add(new CartItem(cart, beer, 3));
+
+        when(cartService.findById(10L)).thenReturn(Optional.of(cart));
+        when(beerService.findById(1L)).thenReturn(Optional.of(beer));
+
+        mockMvc.perform(post("/carts/10/checkout"))
+                .andExpect(status().isConflict());
+
+        verify(cartService).findById(10L);
+        verify(beerService).findById(1L);
+        verifyNoMoreInteractions(cartService, beerService);
     }
 }
