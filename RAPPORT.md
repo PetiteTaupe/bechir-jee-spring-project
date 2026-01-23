@@ -107,6 +107,7 @@ Les contrôleurs s’assurent que les entités liées sont bien "managées"(ex�
 
 En plus des objectifs minimaux, le projet implémente :
 
+- **Filtre par pays pour le catalogue de bière** : ajout du paramètre `country` sur `GET /beers` (ex. `?country=Belgium`).
 - **Checkout transactionnel** : validation d’achat, décrément du stock, suppression du panier.
 - **Journalisation des ventes** : création d’un `SalesLog` avec ses lignes `SalesLogItem` lors du checkout.
 - **Top global des ventes** : `GET /sales_logs/top?limit=10` agrège les quantités vendues par bière.
