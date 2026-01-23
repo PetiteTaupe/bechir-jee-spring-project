@@ -3,6 +3,8 @@ package ch.hearc.jee2025.bechirjeespringproject.cart;
 import ch.hearc.jee2025.bechirjeespringproject.beer.Beer;
 import ch.hearc.jee2025.bechirjeespringproject.beer.BeerService;
 import ch.hearc.jee2025.bechirjeespringproject.cart_item.CartItem;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLog;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLogService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,13 +30,15 @@ class CartControllerTest {
 
     private CartService cartService;
     private BeerService beerService;
+    private SalesLogService salesLogService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         cartService = mock(CartService.class);
         beerService = mock(BeerService.class);
-        mockMvc = MockMvcBuilders.standaloneSetup(new CartController(cartService, beerService)).build();
+        salesLogService = mock(SalesLogService.class);
+        mockMvc = MockMvcBuilders.standaloneSetup(new CartController(cartService, beerService, salesLogService)).build();
     }
 
     @Test
@@ -54,7 +58,7 @@ class CartControllerTest {
                 .andExpect(jsonPath("$[0].id", is(10)));
 
         verify(cartService).findAll();
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -70,7 +74,7 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.id", is(10)));
 
         verify(cartService).findById(10L);
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -82,7 +86,7 @@ class CartControllerTest {
                 .andExpect(status().isNotFound());
 
         verify(cartService).findById(10L);
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -104,7 +108,7 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.total", is(7.5)));
 
         verify(cartService).findById(10L);
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -119,7 +123,7 @@ class CartControllerTest {
                 .andExpect(status().isOk());
 
         verify(cartService).save(any(Cart.class));
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -133,7 +137,7 @@ class CartControllerTest {
                 .andExpect(status().isNotFound());
 
         verify(cartService).findById(10L);
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -151,7 +155,7 @@ class CartControllerTest {
                 .andExpect(status().isBadRequest());
 
         verify(cartService).findById(10L);
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -190,7 +194,7 @@ class CartControllerTest {
         assertEquals(1L, saved.getItems().getFirst().getBeer().getId());
         assertEquals(2, saved.getItems().getFirst().getQuantity());
 
-        verifyNoMoreInteractions(cartService, beerService);
+        verifyNoMoreInteractions(cartService, beerService, salesLogService);
     }
 
     @Test
@@ -202,7 +206,7 @@ class CartControllerTest {
                 .andExpect(status().isNotFound());
 
         verify(cartService).deleteById(10L);
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -215,7 +219,7 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.id", is("10")));
 
         verify(cartService).deleteById(10L);
-        verifyNoMoreInteractions(cartService);
+        verifyNoMoreInteractions(cartService, salesLogService);
     }
 
     @Test
@@ -227,7 +231,7 @@ class CartControllerTest {
                 .andExpect(status().isNotFound());
 
         verify(cartService).findById(10L);
-        verifyNoMoreInteractions(cartService, beerService);
+        verifyNoMoreInteractions(cartService, beerService, salesLogService);
     }
 
     @Test
@@ -257,8 +261,18 @@ class CartControllerTest {
         verify(beerService).save(beerCaptor.capture());
         verify(cartService).deleteById(10L);
 
+        ArgumentCaptor<SalesLog> salesLogCaptor = ArgumentCaptor.forClass(SalesLog.class);
+        verify(salesLogService).save(salesLogCaptor.capture());
+
+        SalesLog logged = salesLogCaptor.getValue();
+        assertEquals(10L, logged.getCartId());
+        assertEquals(7.5, logged.getTotal());
+        assertEquals(1, logged.getItems().size());
+        assertEquals(1L, logged.getItems().getFirst().getBeerId());
+        assertEquals(3, logged.getItems().getFirst().getQuantity());
+
         assertEquals(7, beerCaptor.getValue().getStock());
-        verifyNoMoreInteractions(cartService, beerService);
+        verifyNoMoreInteractions(cartService, beerService, salesLogService);
     }
 
     @Test
@@ -279,6 +293,6 @@ class CartControllerTest {
 
         verify(cartService).findById(10L);
         verify(beerService).findById(1L);
-        verifyNoMoreInteractions(cartService, beerService);
+        verifyNoMoreInteractions(cartService, beerService, salesLogService);
     }
 }

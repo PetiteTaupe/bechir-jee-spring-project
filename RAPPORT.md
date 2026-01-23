@@ -1,165 +1,190 @@
-# Rapport - bechir-jee-spring-project
+# Rapport - Projet JEE-Spring
 
-## Architecture implémentée
-### Structure en couches
+## Introduction
 
-- **Entités JPA**: `Beer`, `Brewery`, `Cart`, `CartItem`.
-- **Repositories**: interfaces `CrudRepository` (ex: `BeerRepository`).
-- **Services**: logique "minimale" de persistance (save/find/delete) (ex: `BeerServiceImpl`).
-- **Controllers REST**: endpoints HTTP + validations + mapping des erreurs en codes HTTP.
+Ce projet met en œuvre une API REST de gestion de bières, de fabricants et de paniers. L’objectif principal est de répondre aux fonctionnalités minimales demandées : consulter un catalogue de bières, gérer un panier et permettre à un administrateur de gérer fabricants, bières, prix et stock. Le projet inclut aussi un mécanisme de checkout avec décrément de stock et journalisation des ventes (vente en gros) via un journal dédié.
 
-### Modèle de données (JPA)
+Le rapport est structuré autour des sections demandées : architecture implémentée, problèmes/résolutions/choix, planning initial vs effectif, puis bilan. Les informations ci‑dessous sont basées sur la lecture complète du code actuel.
 
-- `Brewery` (fabricant)
-  - `@OneToMany(mappedBy = "brewery")` vers `Beer`
-- `Beer` (bière)
-  - attributs: `name`, `price`, `stock`
-  - `@ManyToOne` vers `Brewery` (obligatoire via `nullable=false`)
-- `Cart` (panier)
-  - `@OneToMany(mappedBy = "cart", cascade = ALL, orphanRemoval = true)` vers `CartItem`
-  - total calculé: `getTotalPrice()` = somme `(beer.price * quantity)`
-- `CartItem` (ligne de panier)
-  - `@ManyToOne` vers `Cart` (obligatoire)
-  - `@ManyToOne` vers `Beer` (obligatoire)
-  - attribut: `quantity`
+## 1. Architecture implémentée
 
-Impact de `cascade=ALL` + `orphanRemoval=true` sur `Cart.items`:
-- supprimer un `Cart` supprime automatiquement ses `CartItem`
-- remplacer/vider la liste des items puis sauvegarder supprime les items orphelins
+### 1.1 Structure en couches
 
-### Données de démo
+L’application suit une architecture en couches classique :
 
-- `DataInitializer` insère:
-  - des `Brewery` et des `Beer` avec prix/stock
-  - des `Cart` et `CartItem` d’exemple
+- **Entités JPA** : `Beer`, `Brewery`, `Cart`, `CartItem`, `SalesLog`, `SalesLogItem`.
+- **Repositories** : interfaces `CrudRepository` pour l’accès aux données.
+- **Services** : logique de persistance minimale (save/find/delete) avec implémentations simples.
+- **Controllers REST** : exposition HTTP, validations métier, gestion des codes d’erreur.
 
-## Fonctionnalités et API
+Cette séparation facilite la lisibilité et l’évolution du projet : les entités restent concentrées sur les données, les services sur la persistance, et les contrôleurs sur les règles métier et l’API.
 
-### Consulter le catalogue (utilisateur)
+### 1.2 Modèle de données (JPA)
 
-Objectif: consulter bières, prix, stock.
+**Brewery (fabricant)**
+- Champs principaux : `name`, `country`.
+- Relation : `@OneToMany(mappedBy = "brewery")` vers `Beer`.
 
-Endpoints (publics):
-- `GET /beers` → liste des bières
-- `GET /beers/{id}` → détail d’une bière
-- `GET /breweries` → liste des fabricants (avec ses bières)
-- `GET /breweries/{id}` → détail d’un fabricant (avec ses bières)
+**Beer (bière)**
+- Champs principaux : `name`, `price`, `stock`.
+- Relation : `@ManyToOne` vers `Brewery` (obligatoire, `nullable = false`).
 
-### Créer un panier et obtenir le total (utilisateur)
+**Cart (panier)**
+- Contient la liste des lignes `CartItem`.
+- Relation : `@OneToMany(mappedBy = "cart", cascade = ALL, orphanRemoval = true)`.
+- Méthode métier : `getTotalPrice()` calcule le total en additionnant `price * quantity`.
 
-Objectif: créer un panier, y mettre des bières, voir les lignes et le total.
+**CartItem (ligne de panier)**
+- Champs principaux : `quantity`.
+- Relations : `@ManyToOne` vers `Cart` et vers `Beer`.
 
-Endpoints:
-- `POST /carts` → crée un panier (avec ou sans items)
-- `PUT /carts/{id}` → remplace le contenu du panier (stratégie "replace-all")
-- `GET /carts/{id}` → récupère le panier (items inclus)
-- `GET /carts/{id}/total` → retourne le total calculé
-- `DELETE /carts/{id}` → supprime le panier
+**SalesLog (journal de vente)**
+- Champs principaux : `cartId`, `total`, `createdAt`.
+- Relation : `@OneToMany(mappedBy = "salesLog", cascade = ALL, orphanRemoval = true)` vers `SalesLogItem`.
 
-Gestion des lignes de panier (CRUD séparé):
-- `POST /cart_items` → crée une ligne (requiert `cart.id`, `beer.id`, `quantity > 0`)
-- `PUT /cart_items/{id}` → met à jour une ligne
-- `GET /cart_items` / `GET /cart_items/{id}`
-- `DELETE /cart_items/{id}`
+**SalesLogItem (ligne de journal)**
+- Champs principaux : `beerId`, `beerName`, `unitPrice`, `quantity`, `lineTotal`.
+- Relation : `@ManyToOne` vers `SalesLog`.
 
-Remarque importante:
-- Le **total** est recalculé à la demande via `Cart.getTotalPrice()`.
-- Le projet **n’applique pas** de décrément automatique du stock lors d’un ajout au panier (stock = information métier portée par `Beer`). 
-  La décrémentation serait plus logique après l'achat du panier.
+**Conséquences techniques**
+- Le couple `cascade = ALL` + `orphanRemoval = true` sur `Cart.items` implique qu’un panier supprimé efface automatiquement ses lignes, et qu’un remplacement d’items supprime les anciens.
 
-### Opération autres que lecture sur fabricants + bières + stock/prix (administrateur)
+### 1.3 Initialisation des données
 
-Objectif: créer/modifier/supprimer fabricants et bières (prix/stock).
+Le composant `DataInitializer` (profil `h2`) insère un jeu de données minimal : fabricants, bières, paniers et lignes. Cela permet de tester rapidement l’API sans chargement manuel préalable.
 
-Différenciation admin/user:
-- Les routes d’écriture côté admin exigent un header: `X-ADMIN-KEY`.
-- Validation centralisée dans `AdminUtils.checkAdminKey(...)`.
-- Clé actuelle: `secret123` (constante dans `AdminUtils`).
+## 2. Fonctionnalités minimales (exigences)
 
-Endpoints admin (requièrent `X-ADMIN-KEY`):
-- `POST /breweries`, `PUT /breweries/{id}`, `DELETE /breweries/{id}`
-- `POST /beers`, `PUT /beers/{id}`, `DELETE /beers/{id}`
+### 2.1 Consultation du catalogue (utilisateur)
 
-Exemple de requête admin (création bière):
+**User story** : *En tant qu’utilisateur, je veux pouvoir consulter le catalogue des bières, leurs prix et les stocks restants.*
 
-```bash
-curl -X POST http://localhost:8080/beers \
-  -H 'Content-Type: application/json' \
-  -H 'X-ADMIN-KEY: secret123' \
-  -d '{"name":"Test IPA","price":4.2,"stock":10,"brewery":{"id":1}}'
-```
+Endpoints publics :
+- `GET /beers` → liste des bières (nom, prix, stock, fabricant).
+- `GET /beers/{id}` → détail d’une bière.
+- `GET /breweries` → liste des fabricants (avec leurs bières).
+- `GET /breweries/{id}` → détail d’un fabricant.
 
-## Problèmes, résolutions, choix
+La consultation est ouverte sans authentification et fournit les informations nécessaires (prix/stock) à la préparation d’une commande.
 
-### Sécurité / distinction admin-user
+### 2.2 Panier et prix total (utilisateur)
 
-- **Choix**: pas de Spring Security / OAuth; les routes d’administration exigent un header `X-ADMIN-KEY`.
-- **Pourquoi**: approche volontairement légère, adaptée au contexte pédagogique.
-- **Implémentation**: contrôle centralisé dans `AdminUtils.checkAdminKey(...)`.
-- **Conséquence**: clé **en dur** (`secret123`) → OK pour démo, insuffisant pour prod.
-- **Amélioration possible**: Spring Security + rôles (ADMIN/USER), configuration externe (env), rotation de secrets, audit.
+**User story** : *En tant qu’utilisateur, je veux pouvoir créer un panier contenant des bières, et obtenir les éléments commandés ainsi que le prix total.*
 
-### Gestion JPA: attacher des entités "managées"
+Endpoints principaux :
+- `POST /carts` → crée un panier (avec ou sans items).
+- `PUT /carts/{id}` → remplace le contenu du panier (stratégie « replace‑all »).
+- `GET /carts/{id}` → récupère le panier avec ses lignes.
+- `GET /carts/{id}/total` → retourne le total calculé.
+- `POST /carts/{id}/checkout` → valide l’achat : décrémente le stock, supprime le panier, journalise la vente.
+- `DELETE /carts/{id}` → supprime le panier.
 
-Dans `BeerController` et `CartItemController`, les entités référencées (brewery/cart/beer) sont rechargées depuis la base avant la sauvegarde.
+Gestion des lignes de panier (CRUD dédié) :
+- `POST /cart_items` → ajoute une ligne (requiert `cart.id`, `beer.id`, `quantity > 0`).
+- `PUT /cart_items/{id}` → met à jour une ligne.
+- `GET /cart_items` / `GET /cart_items/{id}`.
+- `DELETE /cart_items/{id}`.
 
-- **Problème évité**: relations vers un id inexistant ou entité transiente.
-- **Résolution**: `attachManagedBrewery(...)` et `attachManagedEntities(...)` valident les IDs et remplacent par des instances managées.
-- **Bénéfice**: erreurs plus claires (`400`/`404`) et cohérence des relations.
+**Remarques métier**
+- Le total est **recalculé à la demande** via `Cart.getTotalPrice()`.
+- Le stock est **décrémenté uniquement lors du checkout** pour éviter des réservations incomplètes.
 
-### Suppressions / intégrité référentielle
+### 2.3 Administration (fabricants, bières, prix, stock)
 
-- **Panier**: `Cart.items` est en `cascade=ALL` + `orphanRemoval=true`.
-  - supprimer un `Cart` supprime ses `CartItem`.
-  - remplacer la liste (via `PUT /carts/{id}`) supprime les anciennes lignes devenues orphelines.
-- **Bière**: suppression bloquée si référencée par des `CartItem`.
-  - `BeerController.delete(...)` traduit une `DataIntegrityViolationException` en `409 CONFLICT`.
+**User story** : *En tant qu’administrateur, je veux pouvoir créer des fabricants, des bières liées et définir le stock et le prix.*
 
-Note "client":
-- pas d’entité `Client`/`User` dans ce projet; la problématique "supprimer un client avec panier" ne s’applique pas directement.
+Accès admin :
+- Les routes d’écriture utilisent le header `X-ADMIN-KEY`.
+- Validation centralisée via `AdminUtils.checkAdminKey(...)`.
+- Clé actuelle : `secret123` (en dur, suffisante pour la démonstration).
 
-### Validations métier
+Endpoints admin :
+- `POST /breweries`, `PUT /breweries/{id}`, `DELETE /breweries/{id}`.
+- `POST /beers`, `PUT /beers/{id}`, `DELETE /beers/{id}`.
 
-- `CartItemController`: `quantity` doit être strictement > 0.
-- Amélioration: ajouter validation sur `price`/`stock` (>= 0), idéalement via Bean Validation.
+Les contrôleurs s’assurent que les entités liées sont bien « managées » (ex : une `Beer` doit référencer une `Brewery` existante) et que les champs métier essentiels sont valides.
 
-### Gestion des erreurs HTTP
+### 2.4 Fonctionnalités supplémentaires (au‑delà du minimum)
 
-- `404 NOT_FOUND`: ressource non trouvée.
-- `400 BAD_REQUEST`: données invalides (IDs requis manquants, quantité <= 0).
-- `403 FORBIDDEN`: `X-ADMIN-KEY` manquant/invalide.
-- `409 CONFLICT`: suppression d’une bière impossible (référencée).
+En plus des objectifs minimaux, le projet implémente :
 
-### Planning initial (exemple)
+- **Checkout transactionnel** : validation d’achat, décrément du stock, suppression du panier.
+- **Journalisation des ventes** : création d’un `SalesLog` avec ses lignes `SalesLogItem` lors du checkout.
+- **CRUD séparé des lignes de panier** : endpoints dédiés `/cart_items` pour créer, modifier et supprimer des lignes.
+- **Jeu de données de démonstration** : insertion automatique via `DataInitializer` (profil `h2`).
 
-- S1: mise en place Spring Boot + H2 + JPA
-- S2: modèle `Beer`/`Brewery` + endpoints catalogue
-- S3: panier `Cart`/`CartItem` + calcul du total
-- S4: endpoints admin + validations + tests
+## 3. Problèmes, résolutions, choix
 
-### Planning effectif (observé)
+### 3.1 Sécurité admin/user
 
-- Base technique en place: Spring Boot + Spring Web + Spring Data JPA + H2
-- Catalogue bières/fabricants: lecture publique + CRUD admin
-- Panier + lignes + total calculé
-- Initialisation de données via `DataInitializer` (profil `h2`)
+- **Problème** : distinguer accès public et opérations administratives sans implémenter une authentification complète.
+- **Choix** : utilisation d’une clé simple `X-ADMIN-KEY`.
+- **Résolution** : contrôle centralisé dans `AdminUtils`.
+- **Conséquence** : méthode volontairement légère, adaptée au cadre du cours, mais insuffisante pour la production.
 
-Écarts notables (vs “prod”):
-- pas d’authentification utilisateur, pas d’entité client
-- pas de décrément de stock transactionnel lors d’un "checkout"
+### 3.2 Relations JPA et entités managées
 
-## Bilan
+- **Problème** : éviter la création de relations vers des entités inexistantes.
+- **Résolution** : rechargement des entités référencées via les services (`attachManagedBrewery`, `attachManagedEntities`).
+- **Bénéfice** : erreurs explicites (`400`/`404`) et cohérence relationnelle.
 
-### Points positifs
+### 3.3 Gestion du stock au checkout
 
-- Architecture en couches claire (controller/service/repository/entities).
-- Relations JPA cohérentes; cascade/orphanRemoval utile pour le panier.
-- API simple à tester (curl) et erreurs HTTP explicites.
+- **Problème** : garantir que le stock est suffisant au moment de l’achat.
+- **Résolution** : l’endpoint `POST /carts/{id}/checkout` vérifie les quantités, décrémente le stock, puis supprime le panier.
+- **Choix** : transaction simple et contrôle de quantité, sans stratégie de verrouillage avancée.
 
-### Limites / améliorations
+### 3.4 Journalisation des ventes (vente en gros)
 
-- Remplacer `X-ADMIN-KEY` hardcodé par une vraie auth (Spring Security) + configuration externe.
-- Ajouter validation de champs (`price`, `stock`) et éventuellement DTOs dédiés.
-- Implémenter un endpoint "checkout" (décrément de stock transactionnel, contrôles de stock).
-- Harmoniser le comportement lors de suppressions invalides (ex: supprimer un `Brewery` référencé).
+- **Problème** : tracer les ventes réalisées après checkout.
+- **Résolution** : création d’un `SalesLog` et de ses `SalesLogItem` lors du checkout.
+- **Choix** : journalisation côté serveur, sans API de lecture/export pour l’instant.
 
+### 3.5 Validation des données
+
+- **CartItem** : `quantity` doit être strictement > 0 et ne pas dépasser le stock.
+- **Beer** : `price >= 0` et `stock >= 0` (validation manuelle dans le contrôleur).
+- **Erreur HTTP** : `400` si données invalides, `409` si stock insuffisant ou suppression impossible (entité référencée).
+
+## 4. Planning initial vs effectif
+
+### 4.1 Planning initial
+
+- **S1** : mise en place Spring Boot + H2 + JPA.
+- **S2** : modèle `Beer`/`Brewery` et endpoints catalogue.
+- **S3** : panier `Cart`/`CartItem` + calcul du total.
+- **S4** : endpoints admin + validations + tests.
+
+### 4.2 Planning effectif
+
+- Base technique (Spring Boot, Spring Web, Spring Data JPA, H2) mise en place.
+- Catalogue public bières/fabricants opérationnel.
+- Panier + lignes de panier + total calculé.
+- Checkout avec décrément de stock et suppression du panier.
+- Journalisation des ventes (SalesLog).
+- Initialisation de données via `DataInitializer`.
+
+**Écarts notables**
+- Authentification limitée à une clé admin en dur.
+- Pas d’API de lecture/export du journal des ventes.
+
+## 5. Bilan
+
+### 5.1 Points positifs
+
+- Architecture en couches claire et cohérente.
+- Modèle JPA simple, relations bien définies.
+- API REST lisible avec gestion explicite des erreurs HTTP.
+- Fonctionnalités minimales entièrement couvertes.
+
+### 5.2 Limites et améliorations possibles
+
+- Remplacer `X-ADMIN-KEY` par une authentification complète (Spring Security).
+- Ajouter Bean Validation (`@Min`, `@NotBlank`) pour homogénéiser la validation.
+- Exposer des endpoints de consultation/export des `SalesLog`.
+- Mettre en place un contrôle transactionnel plus fin au checkout (optimistic locking).
+- Harmoniser le comportement lors des suppressions référentielles (ex. suppression d’un `Brewery` lié).
+
+## Conclusion
+
+Le projet respecte les exigences minimales : catalogue de bières avec stock et prix, panier avec total, et administration des fabricants/bières/stock/prix. L’architecture et les choix techniques restent adaptés au cadre du cours, tout en offrant une base solide pour des évolutions futures (authentification, audit des ventes, validations déclaratives).

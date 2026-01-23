@@ -3,21 +3,28 @@ package ch.hearc.jee2025.bechirjeespringproject.cart;
 import ch.hearc.jee2025.bechirjeespringproject.beer.Beer;
 import ch.hearc.jee2025.bechirjeespringproject.beer.BeerService;
 import ch.hearc.jee2025.bechirjeespringproject.cart_item.CartItem;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLog;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLogItem;
+import ch.hearc.jee2025.bechirjeespringproject.sales_log.SalesLogService;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/carts")
 public class CartController {
 
-    public CartController(CartService cartService, BeerService beerService) {
+    public CartController(CartService cartService, BeerService beerService, SalesLogService salesLogService) {
         this.cartService = cartService;
         this.beerService = beerService;
+        this.salesLogService = salesLogService;
     }
 
     // CREATE/UPDATE
@@ -91,6 +98,7 @@ public class CartController {
             ));
 
         Map<Long, Integer> quantityByBeerId = new HashMap<>();
+        Map<Long, Beer> managedBeerById = new HashMap<>();
         for (CartItem item : cart.getItems()) {
             attachManagedBeerAndValidateStock(item);
             Long beerId = item.getBeer().getId();
@@ -116,9 +124,33 @@ public class CartController {
 
             managedBeer.setStock(managedBeer.getStock() - requestedQuantity);
             beerService.save(managedBeer);
+            managedBeerById.put(beerId, managedBeer);
         }
 
         double total = cart.getTotalPrice();
+
+        SalesLog salesLog = new SalesLog();
+        salesLog.setCartId(id);
+        salesLog.setTotal(total);
+        salesLog.setCreatedAt(LocalDateTime.now());
+
+        List<SalesLogItem> logItems = new ArrayList<>();
+        for (Map.Entry<Long, Integer> entry : quantityByBeerId.entrySet()) {
+            Long beerId = entry.getKey();
+            int quantity = entry.getValue();
+            Beer managedBeer = managedBeerById.get(beerId);
+            SalesLogItem logItem = new SalesLogItem(
+                    salesLog,
+                    managedBeer.getId(),
+                    managedBeer.getName(),
+                    managedBeer.getPrice(),
+                    quantity
+            );
+            logItems.add(logItem);
+        }
+        salesLog.setItems(logItems);
+        salesLogService.save(salesLog);
+
         cartService.deleteById(id);
 
         return Map.of(
@@ -176,4 +208,5 @@ public class CartController {
 
     private final CartService cartService;
     private final BeerService beerService;
+    private final SalesLogService salesLogService;
 }
