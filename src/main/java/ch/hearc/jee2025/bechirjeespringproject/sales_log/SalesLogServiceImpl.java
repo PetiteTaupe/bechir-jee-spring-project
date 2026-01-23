@@ -1,14 +1,17 @@
 package ch.hearc.jee2025.bechirjeespringproject.sales_log;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.List;
 
 @Service
 public class SalesLogServiceImpl implements SalesLogService {
 
-    public SalesLogServiceImpl(SalesLogRepository salesLogRepository) {
+    public SalesLogServiceImpl(SalesLogRepository salesLogRepository, SalesLogItemRepository salesLogItemRepository) {
         this.salesLogRepository = salesLogRepository;
+        this.salesLogItemRepository = salesLogItemRepository;
     }
 
     @Override
@@ -26,5 +29,18 @@ public class SalesLogServiceImpl implements SalesLogService {
         return salesLogRepository.findAll();
     }
 
+    @Override
+    public List<TopBeerSales> getTopBeers(int limit) {
+        int pageSize = Math.max(limit, 1);
+        return salesLogItemRepository.findTopBeerSales(PageRequest.of(0, pageSize))
+                .map(view -> new TopBeerSales(
+                        view.getBeerId(),
+                        view.getBeerName(),
+                        view.getTotalQuantity() == null ? 0 : view.getTotalQuantity()
+                ))
+                .getContent();
+    }
+
     private final SalesLogRepository salesLogRepository;
+    private final SalesLogItemRepository salesLogItemRepository;
 }
