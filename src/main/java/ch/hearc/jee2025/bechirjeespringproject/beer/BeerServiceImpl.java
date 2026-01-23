@@ -27,6 +27,11 @@ public class BeerServiceImpl implements BeerService {
     }
 
     @Override
+    public Iterable<Beer> findAllByCountry(String country) {
+        return beerRepository.findByBrewery_CountryIgnoreCase(country);
+    }
+
+    @Override
     public void deleteById(Long id) {
         Beer beer = beerRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Beer not found with id: " + id));

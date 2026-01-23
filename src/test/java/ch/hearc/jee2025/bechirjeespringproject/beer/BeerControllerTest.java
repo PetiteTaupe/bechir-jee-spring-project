@@ -64,6 +64,29 @@ class BeerControllerTest {
     }
 
     @Test
+    // Vérifie que GET /beers?country=CH filtre par pays.
+    void getAll_withCountry_filtersByCountry() throws Exception {
+        Brewery b = new Brewery("Brew", "CH");
+        b.setId(1L);
+
+        Beer beer1 = new Beer("A", 1.0, 1);
+        beer1.setId(10L);
+        beer1.setBrewery(b);
+
+        when(beerService.findAllByCountry("CH")).thenReturn(List.of(beer1));
+
+        mockMvc.perform(get("/beers?country=CH"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id", is(10)))
+                .andExpect(jsonPath("$[0].name", is("A")));
+
+        verify(beerService).findAllByCountry("CH");
+        verifyNoMoreInteractions(beerService, breweryService);
+    }
+
+    @Test
     // Vérifie que GET /beers/{id} retourne 200 quand la bière existe.
     void getById_whenFound_returns200() throws Exception {
         Brewery b = new Brewery("Brew", "CH");

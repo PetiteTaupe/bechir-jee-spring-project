@@ -45,7 +45,10 @@ public class BeerController {
 
     // READ
     @GetMapping
-    public Iterable<Beer> getAll() {
+    public Iterable<Beer> getAll(@RequestParam(required = false) String country) {
+        if (country != null && !country.isBlank()) {
+            return beerService.findAllByCountry(country);
+        }
         return beerService.findAll();
     }
 

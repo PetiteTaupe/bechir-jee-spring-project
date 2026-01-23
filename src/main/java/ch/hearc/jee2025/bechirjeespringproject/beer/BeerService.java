@@ -7,5 +7,6 @@ public interface BeerService {
     Beer save(Beer beer);
     Optional<Beer> findById(Long id);
     Iterable<Beer> findAll();
+    Iterable<Beer> findAllByCountry(String country);
     void deleteById(Long id);
 }

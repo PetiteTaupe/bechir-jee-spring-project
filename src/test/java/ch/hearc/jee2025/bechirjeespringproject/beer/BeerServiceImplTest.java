@@ -63,6 +63,19 @@ class BeerServiceImplTest {
     }
 
     @Test
+    // Vérifie que findAllByCountry() délègue à BeerRepository.findByBrewery_CountryIgnoreCase().
+    void findAllByCountry_delegatesToRepository() {
+        List<Beer> beers = List.of(new Beer("A", 1.0, 1));
+        when(beerRepository.findByBrewery_CountryIgnoreCase("CH")).thenReturn(beers);
+
+        Iterable<Beer> result = beerService.findAllByCountry("CH");
+
+        assertSame(beers, result);
+        verify(beerRepository).findByBrewery_CountryIgnoreCase("CH");
+        verifyNoMoreInteractions(beerRepository);
+    }
+
+    @Test
     // Vérifie que deleteById() supprime la bière quand elle existe.
     void deleteById_whenBeerExists_deletesIt() {
         Beer beer = new Beer("Test", 2.5, 10);
